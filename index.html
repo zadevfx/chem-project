@@ -290,6 +290,8 @@
       const loading = document.querySelector("#loading");
       const styleSelect = document.querySelector("#style-select");
       const themeButton = document.querySelector("#theme-toggle");
+      const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      const apiBase = isLocal ? "" : "https://YOUR-RENDER-SERVICE.onrender.com";
       const columns = ["smiles", "canonical", "MW", "logP", "HBD", "HBA", "TPSA"];
       let results = [];
       let sortState = { key: null, dir: 1 };
@@ -373,7 +375,7 @@
         analyzeButton.disabled = true;
         loading.hidden = false;
         try {
-          const response = await fetch("/api/analyze", {
+          const response = await fetch(`${apiBase}/api/analyze`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ smiles })
