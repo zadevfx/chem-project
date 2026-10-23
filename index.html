@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore molecular structures and calculate useful properties from SMILES.">
+  <title>Molecule Explorer</title>
+  <script>
+    (() => {
+      let theme;
+      try { theme = localStorage.getItem("theme"); } catch (error) {}
+      if (theme !== "dark" && theme !== "light") {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --surface: #fff;
+      --surface-2: #eef1f5;
+      --text: #15202b;
+      --muted: #596675;
+      --border: #d5dbe3;
+      --accent: #087f78;
+      --accent-text: #fff;
+      --accent-soft: #def2ef;
+      --stripe: #f5f7f9;
+      --error-bg: #fdeeee;
+      --error-text: #8a1c1c;
+      --warning-bg: #fff6dc;
+      --warning-text: #644700;
+      --focus: #1d5fd1;
+      --shadow: 0 2px 10px rgba(16, 24, 40, .06);
+      --viewer-bg: #fafbfc;
+      --viewer-hydrogen: #b8bec7;
+    }
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0e1217;
+      --surface: #161b22;
+      --surface-2: #1d232c;
+      --text: #e6eaf0;
+      --muted: #a4aebb;
+      --border: #2d3540;
+      --accent: #4fd1c5;
+      --accent-text: #08201e;
+      --accent-soft: #143331;
+      --stripe: #1a2028;
+      --error-bg: #2b1517;
+      --error-text: #ffb8b8;
+      --warning-bg: #2a2410;
+      --warning-text: #f2d48c;
+      --focus: #7fb0ff;
+      --shadow: 0 2px 12px rgba(0, 0, 0, .25);
+      --viewer-bg: #1f252e;
+      --viewer-hydrogen: #f2f2f2;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh; display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text);
+      font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+      transition: background-color .2s, color .2s;
+    }
+    button, textarea, select { font: inherit; }
+    button, select { cursor: pointer; }
+    button:focus-visible, textarea:focus-visible, select:focus-visible {
+      outline: 2px solid var(--focus); outline-offset: 2px;
+    }
+    .wrap { width: min(1160px, 100%); margin: 0 auto; padding: 0 20px; }
+    .site-header { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .header-inner { min-height: 64px; display: flex; align-items: center; justify-content: space-between; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 750; font-size: 1.08rem; }
+    .brand em, .brand-mark { color: var(--accent); font-style: normal; }
+    .brand-mark { width: 29px; height: 29px; }
+    .icon-btn { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); color: var(--text); }
+    .icon-btn svg { width: 20px; height: 20px; }
+    .icon-sun, [data-theme="dark"] .icon-moon { display: none; }
+    [data-theme="dark"] .icon-sun { display: block; }
+    main { flex: 1; padding-bottom: 48px !important; }
+    .intro { max-width: 780px; padding: 38px 0 18px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 10px; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.15; letter-spacing: -.035em; }
+    h2 { margin: 0 0 4px; font-size: 1.1rem; line-height: 1.3; }
+    .intro p { margin: 0; color: var(--muted); font-size: 1.05rem; }
+    .panel { margin-top: 18px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+    .panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .muted { color: var(--muted); }
+    .small { font-size: .875rem; }
+    .panel-head p { margin: 0; }
+    .examples { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: .9rem; }
+    .chip { padding: 4px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--text); font-size: .85rem; }
+    .chip:hover, .btn-ghost:hover, .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .chip-alt { border-color: transparent; background: var(--accent-soft); color: var(--accent); }
+    textarea { width: 100%; min-height: 140px; resize: vertical; padding: 13px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); font: .94rem/1.55 ui-monospace, Consolas, monospace; }
+    textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+    textarea::placeholder { color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+    .btn { display: inline-flex; align-items: center; padding: 9px 16px; border: 1px solid transparent; border-radius: 9px; font-weight: 650; }
+    .btn-primary { background: var(--accent); color: var(--accent-text); }
+    .btn-primary:hover { filter: brightness(.94); }
+    .btn-primary:disabled { opacity: .65; cursor: progress; }
+    .btn-ghost { border-color: var(--border); background: var(--surface-2); color: var(--text); }
+    .hint { margin-left: auto; font-size: .85rem; }
+    .loading { display: inline-flex; align-items: center; gap: 9px; color: var(--muted); }
+    [hidden] { display: none !important; }
+    .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .msg { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 11px; }
+    .msg h3 { margin: 0 0 5px; font-size: 1rem; }
+    .msg ul { margin: 0; padding-left: 19px; }
+    .msg-error { background: var(--error-bg); color: var(--error-text); }
+    .msg-warning { background: var(--warning-bg); color: var(--warning-text); }
+    code, .mono { font-family: ui-monospace, Consolas, monospace; }
+    .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--surface-2); white-space: nowrap; }
+    th button { padding: 0; border: 0; background: none; color: var(--text); font-weight: 650; }
+    th button::after { content: " ↕"; color: var(--muted); font-size: .8em; }
+    th[aria-sort="ascending"] button::after { content: " ▲"; color: var(--accent); }
+    th[aria-sort="descending"] button::after { content: " ▼"; color: var(--accent); }
+    th[data-type="num"], td.num { text-align: right; }
+    td.num { font-variant-numeric: tabular-nums; }
+    td.mono { max-width: 250px; word-break: break-all; font-size: .84rem; }
+    tbody tr:nth-child(even) td { background: var(--stripe); }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr.is-linked td { background: var(--accent-soft); }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; }
+    .card-grid-3d { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+    .card { display: flex; flex-direction: column; overflow: hidden; margin: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+    .card.is-linked { outline: 2px solid var(--accent); }
+    .card-figure { display: grid; place-items: center; aspect-ratio: 300 / 220; padding: 8px; }
+    .card-figure svg { display: block; width: 100%; height: auto; }
+    .svg-light { display: block; width: 100%; }
+    .svg-dark { display: none; width: 100%; }
+    [data-theme="dark"] .svg-light { display: none; }
+    [data-theme="dark"] .svg-dark { display: block; }
+    .card-caption { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface); font: .82rem ui-monospace, Consolas, monospace; word-break: break-all; }
+    .card-index { flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font: 650 .75rem system-ui, sans-serif; }
+    .viewer { position: relative; width: 100%; height: 280px; background: var(--viewer-bg); }
+    .viewer-failed { display: grid; place-items: center; padding: 20px; background: var(--warning-bg); color: var(--warning-text); text-align: center; }
+    .select-label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; }
+    select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); }
+    .site-footer { padding: 18px 0; border-top: 1px solid var(--border); background: var(--surface); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+    @media (max-width: 620px) {
+      .wrap { padding-right: 14px; padding-left: 14px; }
+      .panel { padding: 15px; }
+      .hint { display: none; }
+      .loading { width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="/" aria-label="Molecule Explorer home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="m16 3 10 6v14l-10 6-10-6V9z" fill="none" stroke="currentColor" stroke-width="2"/>
+          <circle cx="16" cy="16" r="3" fill="currentColor"/>
+          <path d="m16 13 5-4M13.5 17.5l-5 3M18.5 17.5l5 3" fill="none" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>Molecule <em>Explorer</em></span>
+      </a>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch color theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M20.4 15.2A8.5 8.5 0 0 1 8.8 3.6 8.5 8.5 0 1 0 20.4 15.2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <h1>Explore molecules, one SMILES at a time.</h1>
+      <p>Enter one or more SMILES strings to calculate molecular properties and view 2D structures and interactive 3D models.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="input-heading">
+      <div class="panel-head">
+        <div>
+          <h2 id="input-heading">Molecule input</h2>
+          <p class="muted small">Add one SMILES string per line.</p>
+        </div>
+        <div class="examples" aria-label="Example molecules">
+          <span class="muted">Try:</span>
+          <button class="chip" type="button" data-example="CCO">Ethanol</button>
+          <button class="chip" type="button" data-example="c1ccccc1">Benzene</button>
+          <button class="chip" type="button" data-example="CC(=O)Oc1ccccc1C(=O)O">Aspirin</button>
+          <button class="chip chip-alt" type="button" data-example-set="all">Load all</button>
+        </div>
+      </div>
+      <label class="sr-only" for="smiles-input">SMILES strings</label>
+      <textarea id="smiles-input" spellcheck="false" placeholder="CCO&#10;c1ccccc1&#10;CC(=O)Oc1ccccc1C(=O)O"></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" id="analyze-btn" type="button">Analyze molecules</button>
+        <button class="btn btn-ghost" id="clear-btn" type="button">Clear</button>
+        <button class="btn btn-ghost" id="csv-btn" type="button">Download CSV</button>
+        <span class="hint muted">Tip: press Ctrl+Enter to analyze</span>
+        <div class="loading" id="loading" hidden role="status">
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Analyzing molecules…</span>
+        </div>
+      </div>
+    </section>
+
+    <div id="messages" aria-live="polite"></div>
+
+    <section class="panel" id="results" aria-labelledby="results-heading" hidden>
+      <div class="panel-head">
+        <div>
+          <h2 id="results-heading">Molecular properties</h2>
+          <p class="muted small">Select a column heading to sort. Hover a row or structure to highlight its matches.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table id="props-table">
+          <thead>
+            <tr>
+              <th data-key="smiles"><button type="button">SMILES</button></th>
+              <th data-key="canonical"><button type="button">Canonical SMILES</button></th>
+              <th data-key="MW" data-type="num"><button type="button">MW</button></th>
+              <th data-key="logP" data-type="num"><button type="button">logP</button></th>
+              <th data-key="HBD" data-type="num"><button type="button">HBD</button></th>
+              <th data-key="HBA" data-type="num"><button type="button">HBA</button></th>
+              <th data-key="TPSA" data-type="num"><button type="button">TPSA</button></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="structures-heading">
+      <div class="panel-head">
+        <div>
+          <h2 id="structures-heading">2D structures</h2>
+          <p class="muted small">Depictions of successfully parsed molecules.</p>
+        </div>
+      </div>
+      <div class="card-grid" id="grid-2d"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="models-heading">
+      <div class="panel-head">
+        <div>
+          <h2 id="models-heading">Interactive 3D models</h2>
+          <p class="muted small">Drag to rotate and scroll to zoom.</p>
+        </div>
+        <label class="select-label" for="style-select">
+          Display style
+          <select id="style-select">
+            <option value="stick">Sticks</option>
+            <option value="sphere">Spheres</option>
+            <option value="ballstick">Ball and stick</option>
+          </select>
+        </label>
+      </div>
+      <div class="card-grid card-grid-3d" id="grid-3d"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap muted small">Molecule Explorer · Structures and descriptors are generated with RDKit.</div>
+  </footer>
+
+  <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      const root = document.documentElement;
+      const input = document.querySelector("#smiles-input");
+      const messages = document.querySelector("#messages");
+      const resultsSection = document.querySelector("#results");
+      const tbody = document.querySelector("#props-table tbody");
+      const grid2d = document.querySelector("#grid-2d");
+      const grid3d = document.querySelector("#grid-3d");
+      const analyzeButton = document.querySelector("#analyze-btn");
+      const loading = document.querySelector("#loading");
+      const styleSelect = document.querySelector("#style-select");
+      const themeButton = document.querySelector("#theme-toggle");
+      const columns = ["smiles", "canonical", "MW", "logP", "HBD", "HBA", "TPSA"];
+      let results = [];
+      let sortState = { key: null, dir: 1 };
+      let viewers = [];
+
+      const theme = () => root.dataset.theme === "dark" ? "dark" : "light";
+      const cssVar = (name) => getComputedStyle(root).getPropertyValue(name).trim();
+
+      function setTheme(value, persist) {
+        root.dataset.theme = value;
+        if (persist) {
+          try { localStorage.setItem("theme", value); } catch (error) {}
+        }
+        const next = value === "dark" ? "light" : "dark";
+        themeButton.setAttribute("aria-label", `Switch to ${next} mode`);
+        themeButton.setAttribute("title", `Switch to ${next} mode`);
+        viewers.forEach((viewer) => restyleViewer(viewer));
+      }
+
+      themeButton.addEventListener("click", () => setTheme(theme() === "dark" ? "light" : "dark", true));
+      setTheme(theme(), false);
+
+      const exampleButtons = document.querySelectorAll("[data-example]");
+      exampleButtons.forEach((button) => button.addEventListener("click", () => {
+        const lines = input.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (!lines.includes(button.dataset.example)) lines.push(button.dataset.example);
+        input.value = lines.join("\n");
+        input.focus();
+      }));
+      document.querySelector("[data-example-set='all']").addEventListener("click", () => {
+        input.value = Array.from(exampleButtons, (button) => button.dataset.example).join("\n");
+        input.focus();
+      });
+
+      function showMessage(kind, title, items) {
+        const box = document.createElement("section");
+        box.className = `msg msg-${kind}`;
+        box.setAttribute("role", kind === "error" ? "alert" : "status");
+        const heading = document.createElement("h3");
+        heading.textContent = title;
+        const list = document.createElement("ul");
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          list.append(li);
+        });
+        box.append(heading, list);
+        messages.append(box);
+      }
+
+      function clearOutput() {
+        messages.replaceChildren();
+        resultsSection.hidden = true;
+        tbody.replaceChildren();
+        grid2d.replaceChildren();
+        grid3d.replaceChildren();
+        viewers = [];
+        results = [];
+      }
+
+      document.querySelector("#clear-btn").addEventListener("click", () => {
+        input.value = "";
+        clearOutput();
+        input.focus();
+      });
+      analyzeButton.addEventListener("click", analyze);
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          analyze();
+        }
+      });
+
+      async function analyze() {
+        const smiles = input.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        clearOutput();
+        if (!smiles.length) {
+          showMessage("warning", "Nothing to analyze", ["Enter at least one SMILES string, one per line."]);
+          return;
+        }
+        analyzeButton.disabled = true;
+        loading.hidden = false;
+        try {
+          const response = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ smiles })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || `Analysis failed (HTTP ${response.status}).`);
+          results = (data.results || []).map((result, idx) => ({ ...result, idx }));
+          sortState = { key: null, dir: 1 };
+          const errors = data.errors || [];
+          if (errors.length) {
+            showMessage("error", `${errors.length} invalid SMILES ${errors.length === 1 ? "was" : "were"} skipped`,
+              errors.map((error) => `${error.smiles}: ${error.message}`));
+          }
+          renderResults();
+        } catch (error) {
+          showMessage("error", "Analysis failed", [
+            error instanceof Error ? error.message : "An unexpected error occurred.",
+            "Check that the website server is running and try again."
+          ]);
+        } finally {
+          loading.hidden = true;
+          analyzeButton.disabled = false;
+        }
+      }
+
+      function sortedResults() {
+        if (!sortState.key) return results.slice();
+        const { key, dir } = sortState;
+        return results.slice().sort((a, b) => {
+          const left = a[key], right = b[key];
+          if (typeof left === "number" && typeof right === "number") return (left - right) * dir;
+          return String(left ?? "").localeCompare(String(right ?? "")) * dir;
+        });
+      }
+
+      function renderTable() {
+        tbody.replaceChildren();
+        sortedResults().forEach((result) => {
+          const row = document.createElement("tr");
+          row.dataset.idx = result.idx;
+          columns.forEach((key) => {
+            const cell = document.createElement("td");
+            cell.textContent = result[key] == null ? "" : String(result[key]);
+            cell.className = typeof result[key] === "number" ? "num" : "mono";
+            row.append(cell);
+          });
+          tbody.append(row);
+        });
+        document.querySelectorAll("#props-table th").forEach((th) => {
+          if (th.dataset.key === sortState.key) {
+            th.setAttribute("aria-sort", sortState.dir === 1 ? "ascending" : "descending");
+          } else {
+            th.removeAttribute("aria-sort");
+          }
+        });
+      }
+
+      document.querySelectorAll("#props-table th button").forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.parentElement.dataset.key;
+          if (sortState.key !== key) sortState = { key, dir: 1 };
+          else if (sortState.dir === 1) sortState.dir = -1;
+          else sortState = { key: null, dir: 1 };
+          renderTable();
+        });
+      });
+
+      function caption(result) {
+        const cap = document.createElement("figcaption");
+        cap.className = "card-caption";
+        const badge = document.createElement("span");
+        badge.className = "card-index";
+        badge.textContent = `#${result.idx + 1}`;
+        const text = document.createElement("span");
+        text.textContent = result.smiles;
+        cap.append(badge, text);
+        return cap;
+      }
+
+      function render2D() {
+        grid2d.replaceChildren();
+        results.forEach((result) => {
+          const card = document.createElement("figure");
+          card.className = "card";
+          card.dataset.idx = result.idx;
+          const figure = document.createElement("div");
+          figure.className = "card-figure";
+          figure.setAttribute("role", "img");
+          figure.setAttribute("aria-label", `2D structure of ${result.smiles}`);
+          const light = document.createElement("div");
+          light.className = "svg-light";
+          light.innerHTML = result.svg_light || "";
+          const dark = document.createElement("div");
+          dark.className = "svg-dark";
+          dark.innerHTML = result.svg_dark || "";
+          figure.append(light, dark);
+          card.append(figure, caption(result));
+          grid2d.append(card);
+        });
+      }
+
+      function styleSpec() {
+        const colorscheme = "Jmol";
+        if (styleSelect.value === "sphere") return { sphere: { scale: 0.95, colorscheme } };
+        if (styleSelect.value === "ballstick") return { stick: { radius: 0.13, colorscheme }, sphere: { scale: 0.27, colorscheme } };
+        return { stick: { radius: 0.17, colorscheme } };
+      }
+
+      function restyleViewer(viewer) {
+        viewer.setBackgroundColor(cssVar("--viewer-bg"));
+        viewer.setStyle({}, styleSpec());
+        viewer.render();
+      }
+
+      function render3D() {
+        grid3d.replaceChildren();
+        viewers = [];
+        results.forEach((result) => {
+          const card = document.createElement("figure");
+          card.className = "card";
+          card.dataset.idx = result.idx;
+          const box = document.createElement("div");
+          box.className = "viewer";
+          card.append(box, caption(result));
+          grid3d.append(card);
+          if (!result.molblock_3d) {
+            box.classList.add("viewer-failed");
+            box.textContent = "3D structure generation failed for this molecule.";
+            return;
+          }
+          if (!window.$3Dmol) {
+            box.classList.add("viewer-failed");
+            box.textContent = "The 3D viewer could not load. Check your internet connection.";
+            return;
+          }
+          try {
+            const viewer = window.$3Dmol.createViewer(box, { backgroundColor: cssVar("--viewer-bg") });
+            viewer.addModel(result.molblock_3d, "sdf");
+            restyleViewer(viewer);
+            viewer.zoomTo();
+            viewer.render();
+            viewers.push(viewer);
+          } catch (error) {
+            box.classList.add("viewer-failed");
+            box.textContent = "Could not display this 3D structure.";
+          }
+        });
+      }
+
+      styleSelect.addEventListener("change", () => viewers.forEach(restyleViewer));
+      window.addEventListener("resize", () => viewers.forEach((viewer) => {
+        viewer.resize();
+        viewer.render();
+      }));
+
+      function highlight(idx, active) {
+        document.querySelectorAll(`[data-idx="${idx}"]`).forEach((element) => element.classList.toggle("is-linked", active));
+      }
+      [tbody, grid2d, grid3d].forEach((container) => {
+        container.addEventListener("mouseover", (event) => {
+          const card = event.target.closest("[data-idx]");
+          if (card) highlight(card.dataset.idx, true);
+        });
+        container.addEventListener("mouseout", (event) => {
+          const card = event.target.closest("[data-idx]");
+          if (card && !card.contains(event.relatedTarget)) highlight(card.dataset.idx, false);
+        });
+      });
+
+      function renderResults() {
+        resultsSection.hidden = results.length === 0;
+        renderTable();
+        render2D();
+        render3D();
+      }
+
+      function csvCell(value) {
+        const text = value == null ? "" : String(value);
+        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      }
+      document.querySelector("#csv-btn").addEventListener("click", () => {
+        if (!results.length) {
+          showMessage("warning", "No results to export", ["Analyze at least one valid molecule first."]);
+          return;
+        }
+        const header = ["SMILES", "Canonical SMILES", "MW", "logP", "HBD", "HBA", "TPSA"];
+        const rows = sortedResults().map((result) => columns.map((key) => csvCell(result[key])).join(","));
+        const blob = new Blob([[header.join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "molecular_properties.csv";
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+    })();
+  </script>
+</body>
+</html>
