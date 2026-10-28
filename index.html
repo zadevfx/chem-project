@@ -130,6 +130,12 @@
     tbody tr:nth-child(even) td { background: var(--stripe); }
     tbody tr:last-child td { border-bottom: 0; }
     tbody tr.is-linked td { background: var(--accent-soft); }
+    .property-definitions { margin-top: 14px; }
+    .property-definitions h3 { margin: 0 0 8px; font-size: .95rem; }
+    .property-definitions dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 0; }
+    .property-definition { margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); }
+    .property-definition dt { margin-bottom: 3px; color: var(--accent); font-weight: 700; }
+    .property-definition dd { margin: 0; color: var(--muted); font-size: .84rem; }
     .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 15px; }
     .card-grid-3d { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
     .card { display: flex; flex-direction: column; overflow: hidden; margin: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
@@ -227,6 +233,7 @@
         <table id="props-table">
           <thead>
             <tr>
+              <th data-key="name"><button type="button">Molecule name</button></th>
               <th data-key="smiles"><button type="button">SMILES</button></th>
               <th data-key="canonical"><button type="button">Canonical SMILES</button></th>
               <th data-key="MW" data-type="num"><button type="button">MW</button></th>
@@ -238,6 +245,31 @@
           </thead>
           <tbody></tbody>
         </table>
+      </div>
+      <div class="property-definitions" aria-labelledby="property-definitions-heading">
+        <h3 id="property-definitions-heading">Property definitions</h3>
+        <dl>
+          <div class="property-definition">
+            <dt>MW — Molecular weight</dt>
+            <dd>The sum of the atomic weights of all atoms in the molecule, shown in grams per mole (g/mol).</dd>
+          </div>
+          <div class="property-definition">
+            <dt>logP — Lipophilicity</dt>
+            <dd>The logarithm of the compound's octanol/water partition coefficient; higher values indicate greater lipophilicity.</dd>
+          </div>
+          <div class="property-definition">
+            <dt>HBD — Hydrogen bond donors</dt>
+            <dd>The number of atoms, usually hydrogen attached to nitrogen or oxygen, that can donate a hydrogen bond.</dd>
+          </div>
+          <div class="property-definition">
+            <dt>HBA — Hydrogen bond acceptors</dt>
+            <dd>The number of atoms, usually nitrogen or oxygen, that can accept a hydrogen bond.</dd>
+          </div>
+          <div class="property-definition">
+            <dt>TPSA — Topological polar surface area</dt>
+            <dd>The surface area contributed by polar atoms in the molecule, shown in square ångströms (Å²).</dd>
+          </div>
+        </dl>
       </div>
     </section>
 
@@ -292,7 +324,7 @@
       const themeButton = document.querySelector("#theme-toggle");
       const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
       const apiBase = isLocal ? "" : "https://YOUR-RENDER-SERVICE.onrender.com";
-      const columns = ["smiles", "canonical", "MW", "logP", "HBD", "HBA", "TPSA"];
+      const columns = ["name", "smiles", "canonical", "MW", "logP", "HBD", "HBA", "TPSA"];
       let results = [];
       let sortState = { key: null, dir: 1 };
       let viewers = [];
@@ -450,7 +482,7 @@
         badge.className = "card-index";
         badge.textContent = `#${result.idx + 1}`;
         const text = document.createElement("span");
-        text.textContent = result.smiles;
+        text.textContent = result.name || result.smiles;
         cap.append(badge, text);
         return cap;
       }
@@ -464,7 +496,7 @@
           const figure = document.createElement("div");
           figure.className = "card-figure";
           figure.setAttribute("role", "img");
-          figure.setAttribute("aria-label", `2D structure of ${result.smiles}`);
+          figure.setAttribute("aria-label", `2D structure of ${result.name || result.smiles}`);
           const light = document.createElement("div");
           light.className = "svg-light";
           light.innerHTML = result.svg_light || "";

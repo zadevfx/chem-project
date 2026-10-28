@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import json
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 from flask_cors import CORS
@@ -38,12 +41,49 @@ def health():
     return jsonify(status="ok")
 
 
-def molecule_svg(molecule: Chem.Mol, background: tuple[float, float, float]) -> str:
+def molecule_svg(molecule: Chem.Mol, background: tuple[float, float, float], dark: bool = False) -> str:
     drawer = rdMolDraw2D.MolDraw2DSVG(300, 220)
     drawer.drawOptions().setBackgroundColour(background)
-    drawer.DrawMolecule(molecule)
+    draw_molecule = Chem.AddHs(molecule) if molecule.GetNumBonds() == 0 else molecule
+    drawer.DrawMolecule(draw_molecule)
     drawer.FinishDrawing()
-    return drawer.GetDrawingText()
+    svg = drawer.GetDrawingText()
+    if dark:
+        svg = svg.replace("#000000", "#FFFFFF").replace("#000", "#FFFFFF")
+    return svg
+
+
+KNOWN_NAMES = {
+    "C": "Methane",
+    "N": "Ammonia",
+    "CCO": "Ethanol",
+    "c1ccccc1": "Benzene",
+    "CC(=O)Oc1ccccc1C(=O)O": "Aspirin",
+    "CN1C=NC2=C1C(=O)N(C(=O)N2C)C": "Caffeine",
+    "OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@@H]1O": "Glucose",
+}
+name_cache: dict[str, str] = {}
+
+
+def molecule_name(smiles: str, canonical: str) -> str:
+    if canonical in KNOWN_NAMES:
+        return KNOWN_NAMES[canonical]
+    if canonical in name_cache:
+        return name_cache[canonical]
+
+    try:
+        query = urllib.parse.quote(canonical, safe="")
+        url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{query}/property/Title/JSON"
+        with urllib.request.urlopen(url, timeout=2) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        title = data["PropertyTable"]["Properties"][0].get("Title")
+        if title:
+            name_cache[canonical] = str(title)
+            return str(title)
+    except Exception:
+        pass
+
+    return canonical
 
 
 def analyze_smiles(smiles: str) -> dict[str, object]:
@@ -61,6 +101,7 @@ def analyze_smiles(smiles: str) -> dict[str, object]:
         molblock_3d = Chem.MolToMolBlock(molecule_3d)
 
     return {
+        "name": molecule_name(smiles, canonical),
         "smiles": smiles,
         "canonical": canonical,
         "MW": round(Descriptors.MolWt(molecule), 2),
@@ -69,7 +110,7 @@ def analyze_smiles(smiles: str) -> dict[str, object]:
         "HBA": rdMolDescriptors.CalcNumHBA(molecule),
         "TPSA": round(rdMolDescriptors.CalcTPSA(molecule), 2),
         "svg_light": molecule_svg(molecule, (1.0, 1.0, 1.0)),
-        "svg_dark": molecule_svg(molecule, (0.11, 0.13, 0.16)),
+        "svg_dark": molecule_svg(molecule, (0.11, 0.13, 0.16), dark=True),
         "molblock_3d": molblock_3d,
     }
 
