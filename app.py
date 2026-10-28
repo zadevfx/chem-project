@@ -4,6 +4,7 @@ import os
 import json
 import urllib.parse
 import urllib.request
+import re
 from pathlib import Path
 
 from flask_cors import CORS
@@ -44,12 +45,15 @@ def health():
 def molecule_svg(molecule: Chem.Mol, background: tuple[float, float, float], dark: bool = False) -> str:
     drawer = rdMolDraw2D.MolDraw2DSVG(300, 220)
     drawer.drawOptions().setBackgroundColour(background)
+    drawer.drawOptions().bondLineWidth = 2.5
     draw_molecule = Chem.AddHs(molecule) if molecule.GetNumBonds() == 0 else molecule
     drawer.DrawMolecule(draw_molecule)
     drawer.FinishDrawing()
     svg = drawer.GetDrawingText()
     if dark:
-        svg = svg.replace("#000000", "#FFFFFF").replace("#000", "#FFFFFF")
+        svg = re.sub(r"#0000FF", "#69B7FF", svg, flags=re.IGNORECASE)
+        svg = re.sub(r"#000000", "#FFFFFF", svg, flags=re.IGNORECASE)
+        svg = re.sub(r"#000(?=[^0-9A-Fa-f]|$)", "#FFFFFF", svg, flags=re.IGNORECASE)
     return svg
 
 

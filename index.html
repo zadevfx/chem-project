@@ -161,6 +161,114 @@
       .loading { width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+    /* Refined application shell */
+    body {
+      position: relative;
+      isolation: isolate;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(51, 184, 160, .07), transparent 28rem),
+        var(--bg);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0;
+      background:
+        linear-gradient(135deg, rgba(29, 104, 255, .08), transparent 26%),
+        radial-gradient(ellipse at 70% 8%, rgba(20, 125, 255, .28), transparent 34%),
+        radial-gradient(ellipse at 92% 54%, rgba(38, 106, 255, .12), transparent 30%),
+        linear-gradient(145deg, #07101d 0%, #091526 42%, #07111f 100%);
+    }
+    [data-theme="dark"] body::before { opacity: 1; }
+    [data-theme="dark"] body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(99, 161, 255, .025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 161, 255, .025) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: linear-gradient(to bottom, black, transparent 78%);
+    }
+    .wrap { width: min(1280px, calc(100% - 40px)); }
+    .site-header { backdrop-filter: blur(18px); background: color-mix(in srgb, var(--surface) 88%, transparent); }
+    [data-theme="dark"] { --bg: #09111a; --surface: rgba(15, 29, 46, .82); --surface-2: rgba(23, 40, 61, .78); --stripe: rgba(20, 35, 54, .72); }
+    [data-theme="dark"] .site-header { background: rgba(8, 17, 29, .72); border-color: rgba(119, 164, 220, .12); }
+    [data-theme="dark"] .panel { border-color: rgba(128, 174, 227, .13); background: rgba(16, 31, 48, .76); backdrop-filter: blur(18px); }
+    [data-theme="dark"] textarea, [data-theme="dark"] select { border-color: rgba(128, 174, 227, .16); background: rgba(10, 23, 38, .8); }
+    [data-theme="dark"] .table-scroll, [data-theme="dark"] .property-definition, [data-theme="dark"] .card { border-color: rgba(128, 174, 227, .13); }
+    [data-theme="dark"] .card-figure, [data-theme="dark"] .viewer { background: rgba(12, 28, 45, .8); }
+    .brand { letter-spacing: -.02em; }
+    .brand-mark { filter: drop-shadow(0 0 8px rgba(79, 209, 197, .18)); }
+    main.wrap { padding-top: 10px; }
+    .intro {
+      position: relative;
+      max-width: none;
+      margin-top: 24px;
+      padding: 40px 44px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        linear-gradient(115deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), var(--surface) 70%),
+        var(--surface);
+    }
+    .intro::after {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      right: -85px;
+      top: -130px;
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      border-radius: 50%;
+      box-shadow: 0 0 0 38px color-mix(in srgb, var(--accent) 5%, transparent), 0 0 0 76px color-mix(in srgb, var(--accent) 3%, transparent);
+    }
+    .intro h1 { max-width: 760px; margin-bottom: 12px; font-size: clamp(2rem, 4.3vw, 3.7rem); }
+    .intro p { max-width: 650px; font-size: 1.08rem; }
+    .panel { border-radius: 16px; box-shadow: 0 12px 36px rgba(4, 12, 20, .08); }
+    [data-theme="dark"] .panel { box-shadow: 0 14px 38px rgba(0, 0, 0, .16); }
+    textarea { min-height: 118px; border-radius: 12px; }
+    .actions { margin-top: 14px; }
+    .btn { min-height: 42px; border-radius: 10px; }
+    .btn-primary { box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 20%, transparent); }
+    .table-scroll { border-radius: 12px; }
+    th { text-transform: uppercase; letter-spacing: .04em; font-size: .72rem; }
+    tbody td { height: 52px; }
+    tbody tr { transition: background-color .15s; }
+    tbody tr:hover td { background: var(--accent-soft); }
+    .property-definitions dl { grid-template-columns: repeat(5, minmax(150px, 1fr)); }
+    .property-definition { min-height: 112px; }
+    .card-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 290px)); }
+    .card-grid-3d { grid-template-columns: repeat(auto-fill, minmax(270px, 360px)); }
+    .card { border-radius: 14px; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+    .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 12px 24px rgba(0, 0, 0, .12); }
+    .card-figure { background:
+      radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 55%),
+      var(--surface-2);
+    }
+    .card-caption { min-height: 48px; font-family: inherit; font-weight: 700; }
+    .card-index { padding: 3px 8px; }
+    .viewer { height: 300px; }
+    .site-footer { margin-top: auto; }
+    @media (max-width: 900px) {
+      .property-definitions dl { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+      .intro { padding: 32px 28px; }
+    }
+    @media (max-width: 620px) {
+      .wrap { width: calc(100% - 28px); }
+      .intro { margin-top: 14px; padding: 26px 20px; }
+      .intro::after { display: none; }
+      .property-definitions dl { grid-template-columns: 1fr; }
+      .card-grid, .card-grid-3d { grid-template-columns: 1fr; }
+      .viewer { height: 260px; }
+    }
   </style>
 </head>
 <body>
@@ -593,7 +701,7 @@
           showMessage("warning", "No results to export", ["Analyze at least one valid molecule first."]);
           return;
         }
-        const header = ["SMILES", "Canonical SMILES", "MW", "logP", "HBD", "HBA", "TPSA"];
+        const header = ["Molecule name", "SMILES", "Canonical SMILES", "MW", "logP", "HBD", "HBA", "TPSA"];
         const rows = sortedResults().map((result) => columns.map((key) => csvCell(result[key])).join(","));
         const blob = new Blob([[header.join(","), ...rows].join("\r\n")], { type: "text/csv;charset=utf-8" });
         const url = URL.createObjectURL(blob);
